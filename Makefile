@@ -10,4 +10,7 @@ wallet_db_migratedown:
 wallet_db_sqlc_generate:
 	cd db/wallet && sqlc generate
 
-.PHONY: wallet_db wallet_db_migrateup wallet_db_migratedown wallet_db_sqlc_generate
+wallet_service:
+	go run cmd/api/wallet_service/*.go
+
+.PHONY: wallet_db wallet_db_migrateup wallet_db_migratedown wallet_db_sqlc_generate wallet_service

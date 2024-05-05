@@ -3,7 +3,7 @@
 //   sqlc v1.25.0
 // source: user.sql
 
-package db_wallet
+package db
 
 import (
 	"context"
