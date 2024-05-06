@@ -1,31 +1,64 @@
 package main
 
 import (
-	"errors"
-	"log"
+	"context"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	cf "github.com/Dev317/golang_wallet/config/wallet"
 	db "github.com/Dev317/golang_wallet/db/wallet/sqlc"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Server struct {
+	config cf.Config
 	q *db.Queries
 	s *http.Server
 }
 
-func NewServer(q *db.Queries, mux *http.ServeMux) *Server {
-	server := &Server{
-		q: q,
-		s: &http.Server{
-			Addr:         ":8080",
-			ReadTimeout:  30 * time.Second,
-			WriteTimeout: 90 * time.Second,
-			IdleTimeout:  120 * time.Second,
-		},
+func makeQuery(config cf.Config) *db.Queries {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	ctx := context.Background()
+	d, err := pgxpool.New(ctx, makeConnString(config))
+	if err != nil {
+		logger.Error("Failed to create connection pool",
+					 slog.Any("error", err),
+		)
 	}
+	return db.New(d)
+}
+
+func makeHTTPServer(config cf.Config) *http.Server {
+	return  &http.Server{
+		Addr:         config.HTTPServerAddress,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 90 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+}
+
+func NewServer(config cf.Config) *Server {
+
+	q := makeQuery(config)
+	s := makeHTTPServer(config)
+
+	server := &Server{
+		config: config,
+		q: q,
+		s: s,
+	}
+
+	mux := http.NewServeMux()
 	server.SetupRoutes(mux)
 	return server
+}
+
+func makeConnString(config cf.Config) string {
+	return "user=" + config.DBUser + " password=" + config.DBPassword + " dbname=" + config.DBName + " sslmode=" + config.DBSSLMode + " host=" + config.DBHost + " port=" + config.DBPort
 }
 
 func (server *Server) SetupRoutes(mux *http.ServeMux) {
@@ -34,22 +67,43 @@ func (server *Server) SetupRoutes(mux *http.ServeMux) {
 
 	// account := http.NewServeMux()
 
-	mux.Handle("/user/", http.StripPrefix("/user", user))
+	mux.Handle("/api/v1/user/", http.StripPrefix("/api/v1/user", user))
 	// mux.Handle("api/v1/account/", http.StripPrefix("api/v1/account", account))
 
-	mux.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello!\n"))
+	mux.HandleFunc("/api/v1/health-check", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("message: Service is healthy!"))
 	})
 
 	server.s.Handler = mux
 }
 
-func (server *Server) Start() error {
-	err := server.s.ListenAndServe()
-	if err != nil {
-		if !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("Failed to start server: %v", err)
+func (server *Server) Start() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := server.s.ListenAndServe(); err != nil {
+			logger.Error("Server error",
+						 slog.Any("error", err),
+			)
 		}
+	} ()
+	logger.Info("Server started successfully")
+
+	<-done
+	logger.Warn("Server stopped!")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+
+	if err := server.s.Shutdown(ctx); err != nil {
+		logger.Error("Failed to shutdown server",
+					 slog.Any("error", err),
+		)
 	}
-	return nil
+
+	logger.Warn("Server shutdown successfully")
 }

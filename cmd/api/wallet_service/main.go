@@ -1,28 +1,23 @@
 package main
 
 import (
-	"context"
-	"log"
-	"net/http"
+	"os"
+	"log/slog"
 
-	db "github.com/Dev317/golang_wallet/db/wallet/sqlc"
-	"github.com/jackc/pgx/v5/pgxpool"
+	cf "github.com/Dev317/golang_wallet/config/wallet"
 )
 
 func main() {
-	ctx := context.Background()
-	d, err := pgxpool.New(ctx, "user=postgres password=postgres dbname=wallet sslmode=disable host=localhost port=5432")
+    logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	config, err := cf.LoadConfig(".")
 	if err != nil {
-		log.Fatalf("Failed to connect to the database: %v", err)
+		logger.Error("Failed to load config",
+					slog.Any("error", err),
+		)
+		os.Exit(1)
 	}
 
-	q := db.New(d)
-	mux := http.NewServeMux()
-	server := NewServer(q, mux)
-	err = server.Start()
-	if err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
-	log.Println("Server started successfully")
-
+	server := NewServer(config)
+	server.Start()
 }
