@@ -65,10 +65,11 @@ func (server *Server) SetupRoutes(mux *http.ServeMux) {
 	user := http.NewServeMux()
 	user.HandleFunc("/create", server.CreateUser)
 
-	// account := http.NewServeMux()
+	account := http.NewServeMux()
+	account.HandleFunc("/create", server.CreateAccount)
 
 	mux.Handle("/api/v1/user/", http.StripPrefix("/api/v1/user", user))
-	// mux.Handle("api/v1/account/", http.StripPrefix("api/v1/account", account))
+	mux.Handle("/api/v1/account/", http.StripPrefix("/api/v1/account", account))
 
 	mux.HandleFunc("/api/v1/health-check", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -7,33 +7,25 @@ package db
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (
-  user_id, address, chain_id, balance
+  user_id, address, chain_id
 ) VALUES (
-  $1, $2, $3, $4
+  $1, $2, $3
 )
 RETURNING id, user_id, address, chain_id, balance, created_at, updated_at
 `
 
 type CreateAccountParams struct {
-	UserID  int64          `json:"user_id"`
-	Address string         `json:"address"`
-	ChainID int32          `json:"chain_id"`
-	Balance pgtype.Numeric `json:"balance"`
+	UserID  int64  `json:"user_id"`
+	Address string `json:"address"`
+	ChainID int32  `json:"chain_id"`
 }
 
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
-	row := q.db.QueryRow(ctx, createAccount,
-		arg.UserID,
-		arg.Address,
-		arg.ChainID,
-		arg.Balance,
-	)
+	row := q.db.QueryRow(ctx, createAccount, arg.UserID, arg.Address, arg.ChainID)
 	var i Account
 	err := row.Scan(
 		&i.ID,

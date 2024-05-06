@@ -1,8 +1,8 @@
 -- name: CreateAccount :one
 INSERT INTO accounts (
-  user_id, address, chain_id, balance
+  user_id, address, chain_id
 ) VALUES (
-  $1, $2, $3, $4
+  $1, $2, $3
 )
 RETURNING *;
 
