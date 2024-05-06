@@ -16,8 +16,8 @@ import (
 
 type Server struct {
 	config cf.Config
-	q *db.Queries
-	s *http.Server
+	q      *db.Queries
+	s      *http.Server
 }
 
 func makeQuery(config cf.Config) *db.Queries {
@@ -26,14 +26,14 @@ func makeQuery(config cf.Config) *db.Queries {
 	d, err := pgxpool.New(ctx, makeConnString(config))
 	if err != nil {
 		logger.Error("Failed to create connection pool",
-					 slog.Any("error", err),
+			slog.Any("error", err),
 		)
 	}
 	return db.New(d)
 }
 
 func makeHTTPServer(config cf.Config) *http.Server {
-	return  &http.Server{
+	return &http.Server{
 		Addr:         config.HTTPServerAddress,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 90 * time.Second,
@@ -48,8 +48,8 @@ func NewServer(config cf.Config) *Server {
 
 	server := &Server{
 		config: config,
-		q: q,
-		s: s,
+		q:      q,
+		s:      s,
 	}
 
 	mux := http.NewServeMux()
@@ -87,21 +87,21 @@ func (server *Server) Start() {
 	go func() {
 		if err := server.s.ListenAndServe(); err != nil {
 			logger.Error("Server error",
-						 slog.Any("error", err),
+				slog.Any("error", err),
 			)
 		}
-	} ()
+	}()
 	logger.Info("Server started successfully")
 
 	<-done
 	logger.Warn("Server stopped!")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := server.s.Shutdown(ctx); err != nil {
 		logger.Error("Failed to shutdown server",
-					 slog.Any("error", err),
+			slog.Any("error", err),
 		)
 	}
 
