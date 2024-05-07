@@ -10,7 +10,7 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	config, err := cf.LoadConfig(".")
+	config, err := cf.LoadServerConfig(".")
 	if err != nil {
 		logger.Error("Failed to load config",
 			slog.Any("error", err),
@@ -18,6 +18,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := NewServer(config)
+	ethConfig, err := cf.LoadEthereumConfig(".")
+	if err != nil {
+		logger.Error("Failed to load ethereum config",
+			slog.Any("error", err),
+		)
+		os.Exit(1)
+	}
+
+	server := NewServer(config, ethConfig)
 	server.Start()
 }

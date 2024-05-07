@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"os"
 
 	db "github.com/Dev317/golang_wallet/db/wallet/sqlc"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 type CreateAccountRequest struct {
@@ -23,6 +28,21 @@ type CreateAccountResponse struct {
 	PublicKey  string `json:"public_key"`
 	PrivateKey string `json:"private_key"`
 	Messsage   string `json:"message"`
+}
+
+type CreateTransactionRequest struct {
+	UserId     string `json:"user_id"`
+	ToAddress  string `json:"to_address"`
+	Amount     int64  `json:"amount"`
+	ChainId    string `json:"chain_id"`
+	PrivateKey string `json:"private_key"`
+}
+
+type CreateTransactionResponse struct {
+	Messsage        string `json:"message"`
+	TransactionHash string `json:"transaction_hash"`
+	ToAddress       string `json:"to_address"`
+	Status          string `json:"status"`
 }
 
 func createAddress() (string, string, string, error) {
@@ -92,6 +112,97 @@ func (server *Server) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		Address:    address,
 		PublicKey:  pubKey,
 		PrivateKey: privateKey,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(*response)
+}
+
+func MakeTransaction(pk string, toHexAddress string, value *big.Int, client *ethclient.Client) string {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	privateKey, err := crypto.HexToECDSA(pk)
+	if err != nil {
+		logger.Error("Error converting hex to ECDSA", slog.Any("error", err))
+	}
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		logger.Error("Cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		logger.Error("Error in getting nonce", slog.Any("error", err))
+	}
+
+	gasLimit := uint64(21000)
+	gasPrice, err := client.SuggestGasPrice(context.Background())
+	if err != nil {
+		logger.Error("Error in getting gas price", slog.Any("error", err))
+	}
+
+	toAddress := common.HexToAddress(toHexAddress)
+	var data []byte
+	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
+
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		logger.Error("Error in getting network ID", slog.Any("error", err))
+	}
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	if err != nil {
+		logger.Error("Error in signing transaction", slog.Any("error", err))
+	}
+
+	err = client.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		logger.Error("Error in sending transaction", slog.Any("error", err))
+	}
+
+	txHash := signedTx.Hash().Hex()
+	logger.Info("Transaction hash", slog.String("tx_hash", txHash))
+	return txHash
+}
+
+func (server *Server) CreateTransaction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed!", http.StatusMethodNotAllowed)
+		return
+	}
+
+	newTransaction := &CreateTransactionRequest{}
+
+	err := json.NewDecoder(r.Body).Decode(newTransaction)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Get the chain URL
+	var chainURL string
+	for _, chainItem := range server.ethConfig.ChainItemList {
+		if chainItem.ChainID == newTransaction.ChainId {
+			chainURL = chainItem.RPCURL
+		}
+	}
+
+	client, err := ethclient.Dial(chainURL)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	transactionHash := MakeTransaction(newTransaction.PrivateKey, newTransaction.ToAddress, big.NewInt(newTransaction.Amount), client)
+
+	w.WriteHeader(http.StatusCreated)
+	response := &CreateTransactionResponse{
+		Messsage:        "Transaction created!",
+		TransactionHash: transactionHash,
+		ToAddress:       newTransaction.ToAddress,
+		Status:          "pending_confirmation",
 	}
 
 	w.Header().Set("Content-Type", "application/json")

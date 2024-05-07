@@ -12,8 +12,31 @@ type Config struct {
 	DBPort            string `mapstructure:"DB_PORT"`
 }
 
-// LoadConfig reads configuration from file or environment variables.
-func LoadConfig(path string) (config Config, err error) {
+type ChainItemConfig struct {
+	ChainID   string `mapstructure:"chain_id"`
+	ChainName string `mapstructure:"chain_name"`
+	RPCURL    string `mapstructure:"rpc_url"`
+}
+
+type EthereumConfig struct {
+	ChainItemList []ChainItemConfig `yaml:"ChainItemList,mapstructure"`
+}
+
+func LoadEthereumConfig(path string) (config EthereumConfig, err error) {
+	viper.AddConfigPath(path)
+	viper.SetConfigName("ethereum")
+	viper.SetConfigType("yaml")
+
+	err = viper.ReadInConfig()
+	if err != nil {
+		return
+	}
+
+	err = viper.Unmarshal(&config)
+	return
+}
+
+func LoadServerConfig(path string) (config Config, err error) {
 	viper.AddConfigPath(path)
 	viper.SetConfigName("wallet")
 	viper.SetConfigType("env")

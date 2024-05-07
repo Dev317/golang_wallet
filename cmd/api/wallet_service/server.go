@@ -15,9 +15,10 @@ import (
 )
 
 type Server struct {
-	config cf.Config
-	q      *db.Queries
-	s      *http.Server
+	config    cf.Config
+	ethConfig cf.EthereumConfig
+	q         *db.Queries
+	s         *http.Server
 }
 
 func makeQuery(config cf.Config) *db.Queries {
@@ -41,15 +42,16 @@ func makeHTTPServer(config cf.Config) *http.Server {
 	}
 }
 
-func NewServer(config cf.Config) *Server {
+func NewServer(config cf.Config, ethConfig cf.EthereumConfig) *Server {
 
 	q := makeQuery(config)
 	s := makeHTTPServer(config)
 
 	server := &Server{
-		config: config,
-		q:      q,
-		s:      s,
+		config:    config,
+		ethConfig: ethConfig,
+		q:         q,
+		s:         s,
 	}
 
 	mux := http.NewServeMux()
@@ -67,6 +69,7 @@ func (server *Server) SetupRoutes(mux *http.ServeMux) {
 
 	account := http.NewServeMux()
 	account.HandleFunc("/create", server.CreateAccount)
+	account.HandleFunc("/create_transaction", server.CreateTransaction)
 
 	mux.Handle("/api/v1/user/", http.StripPrefix("/api/v1/user", user))
 	mux.Handle("/api/v1/account/", http.StripPrefix("/api/v1/account", account))
