@@ -12,6 +12,10 @@ type CreateUserRequest struct {
 	Password string `json:"password"`
 }
 
+type CreateUserResponse struct {
+	Message string `json:"message"`
+}
+
 func hashPassword(rawPassword string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(rawPassword), bcrypt.DefaultCost)
 	return string(hashedPassword), err
@@ -46,5 +50,9 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("User created successfully!"))
+	w.Header().Set("Content-Type", "application/json")
+	response := &CreateUserResponse{
+		Message: "User created successfully!",
+	}
+	json.NewEncoder(w).Encode(*response)
 }

@@ -18,6 +18,13 @@ type CreateAccountRequest struct {
 	ChainID int32 `json:"chain_id"`
 }
 
+type CreateAccountResponse struct {
+	Address    string `json:"address"`
+	PublicKey  string `json:"public_key"`
+	PrivateKey string `json:"private_key"`
+	Messsage   string `json:"message"`
+}
+
 func createAddress() (string, string, string, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	privateKey, err := crypto.GenerateKey()
@@ -68,7 +75,6 @@ func (server *Server) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	_, err = server.q.CreateAccount(r.Context(), db.CreateAccountParams{
 		UserID:  newAccount.UserID,
 		ChainID: newAccount.ChainID,
@@ -81,5 +87,13 @@ func (server *Server) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Account created successfully!\nAddress: " + address + "\nPublic Key: " + pubKey + "\nPrivate Key: " + privateKey))
+	response := &CreateAccountResponse{
+		Messsage:   "Account created successfully!",
+		Address:    address,
+		PublicKey:  pubKey,
+		PrivateKey: privateKey,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(*response)
 }
