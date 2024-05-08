@@ -26,6 +26,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := NewServer(config, ethConfig)
+	queueConfig, err := cf.LoadQueueConfig(".")
+	if err != nil {
+		logger.Error("Failed to load queue config",
+			slog.Any("error", err),
+		)
+		os.Exit(1)
+	}
+
+	server := NewServer(config, ethConfig, queueConfig)
 	server.Start()
 }

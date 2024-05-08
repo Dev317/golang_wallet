@@ -12,13 +12,16 @@ import (
 	cf "github.com/Dev317/golang_wallet/config/wallet"
 	db "github.com/Dev317/golang_wallet/db/wallet/sqlc"
 	"github.com/jackc/pgx/v5/pgxpool"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Server struct {
 	config    cf.Config
 	ethConfig cf.EthereumConfig
+	queueConfig cf.QueueConifg
 	q         *db.Queries
 	s         *http.Server
+	queueConn *amqp.Connection
 }
 
 func makeQuery(config cf.Config) *db.Queries {
@@ -42,16 +45,38 @@ func makeHTTPServer(config cf.Config) *http.Server {
 	}
 }
 
-func NewServer(config cf.Config, ethConfig cf.EthereumConfig) *Server {
+func makeQueueConnection(queueConfig cf.QueueConifg) (*amqp.Connection, error) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	conn, err := amqp.Dial(queueConfig.URI)
+	if err != nil {
+		logger.Error("Failed to connect to RabbitMQ",
+			slog.Any("error", err),
+		)
+		return nil, err
+	}
+	return conn, nil
+}
 
+func NewServer(config cf.Config, ethConfig cf.EthereumConfig, queueConfig cf.QueueConifg) *Server {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	q := makeQuery(config)
 	s := makeHTTPServer(config)
+
+	queueConn, err := makeQueueConnection(queueConfig)
+	if err != nil {
+		logger.Error("Failed to connect to RabbitMQ",
+			slog.Any("error", err),
+		)
+		os.Exit(1)
+	}
+	logger.Info("Connected to RabbitMQ")
 
 	server := &Server{
 		config:    config,
 		ethConfig: ethConfig,
 		q:         q,
 		s:         s,
+		queueConn: queueConn,
 	}
 
 	mux := http.NewServeMux()
@@ -107,6 +132,7 @@ func (server *Server) Start() {
 		logger.Error("Failed to shutdown server",
 			slog.Any("error", err),
 		)
+		server.queueConn.Close()
 	}
 
 	logger.Warn("Server shutdown successfully")

@@ -22,6 +22,26 @@ type EthereumConfig struct {
 	ChainItemList []ChainItemConfig `yaml:"ChainItemList,mapstructure"`
 }
 
+type QueueConifg struct {
+	URI string `mapstructure:"URI"`
+}
+
+func LoadQueueConfig(path string) (config QueueConifg, err error) {
+	viper.AddConfigPath(path)
+	viper.SetConfigName("queue")
+	viper.SetConfigType("env")
+
+	viper.AutomaticEnv()
+
+	err = viper.ReadInConfig()
+	if err != nil {
+		return
+	}
+
+	err = viper.Unmarshal(&config)
+	return
+}
+
 func LoadEthereumConfig(path string) (config EthereumConfig, err error) {
 	viper.AddConfigPath(path)
 	viper.SetConfigName("ethereum")

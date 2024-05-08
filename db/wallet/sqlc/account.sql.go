@@ -39,6 +39,17 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 	return i, err
 }
 
+const getAccountAddressById = `-- name: GetAccountAddressById :one
+SELECT address FROM accounts WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetAccountAddressById(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRow(ctx, getAccountAddressById, id)
+	var address string
+	err := row.Scan(&address)
+	return address, err
+}
+
 const getAccountByAddressAndByChainId = `-- name: GetAccountByAddressAndByChainId :one
 SELECT id, user_id, address, chain_id, balance, created_at, updated_at FROM accounts WHERE address = $1 AND chain_id = $2 LIMIT 1
 `

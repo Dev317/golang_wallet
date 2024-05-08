@@ -5,6 +5,7 @@ go 1.21.3
 require (
 	github.com/ethereum/go-ethereum v1.14.0
 	github.com/jackc/pgx/v5 v5.5.5
+	github.com/rabbitmq/amqp091-go v1.10.0
 	golang.org/x/crypto v0.22.0
 )
 
