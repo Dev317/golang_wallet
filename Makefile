@@ -13,7 +13,10 @@ wallet_db_sqlc_generate:
 wallet_service:
 	go run cmd/api/wallet_service/*.go
 
+scanner_service:
+	go run cmd/api/scanner_service/*.go
+
 amqp:
 	docker run --name amqp -p 5672:5672 -p 15672:15672 -e RABBITMQ_DEFAULT_USER=guest -e RABBITMQ_DEFAULT_PASS=guest -d rabbitmq:3-management
 
-.PHONY: wallet_db wallet_db_migrateup wallet_db_migratedown wallet_db_sqlc_generate wallet_service amqp
+.PHONY: wallet_db wallet_db_migrateup wallet_db_migratedown wallet_db_sqlc_generate wallet_service scanner_service amqp
